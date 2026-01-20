@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>蚂蚁Alice历险记 - @孙维刚教育研究院</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f9ff;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+        }
+        canvas {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            background-color: #ffffff;
+            border-radius: 8px;
+            cursor: default;
+            width: 100%; /* Responsive width */
+            height: auto; /* Maintain aspect ratio */
+            touch-action: none; /* Prevent scrolling when touching canvas */
+        }
+        canvas.interactive {
+            cursor: pointer;
+        }
+        .panel {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .hidden {
+            display: none;
+        }
+        .num-input {
+            width: 40px; /* Smaller on mobile */
+            padding: 4px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+            color: #334155;
+            font-size: 0.875rem;
+        }
+        @media (min-width: 768px) {
+            .num-input { width: 50px; }
+        }
+        /* Custom Toggle Switches */
+        .toggle-label {
+            width: 2.5rem;
+            height: 1.5rem;
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            position: relative;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        .toggle-label::after {
+            content: '';
+            position: absolute;
+            top: 0.25rem;
+            left: 0.25rem;
+            width: 1rem;
+            height: 1rem;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        input:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        input:checked + .toggle-label::after {
+            transform: translateX(100%);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen p-2 md:p-4 pb-10">
+
+    <div class="max-w-4xl w-full space-y-4">
+        
+        <!-- Header -->
+        <div class="text-center mt-2">
+            <h1 class="text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">蚂蚁Alice历险记</h1>
+            <p id="headerHint" class="hidden"></p> 
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative flex justify-center w-full">
+            <!-- Canvas resolution is high (1000x400), displayed size controlled by CSS -->
+            <canvas id="simCanvas" width="1000" height="400"></canvas>
+            
+            <!-- Reset Overlay -->
+            <div id="resetHint" class="hidden absolute inset-0 bg-white/50 flex items-center justify-center pointer-events-none z-10">
+                <div class="bg-black/80 text-white px-4 py-3 md:px-6 md:py-4 rounded-lg font-bold text-center shadow-xl backdrop-blur-sm transform transition-all scale-100 mx-4">
+                    <div class="text-base md:text-lg mb-1">演示结束</div>
+                    <div class="text-xs md:text-sm font-normal opacity-90">点击“重播”再次观看<br>或点击“新生成”开始新实验</div>
+                </div>
+            </div>
+            
+            <!-- Custom Mode Hint Overlay -->
+            <div id="customHint" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
+                <span class="bg-blue-100/95 text-blue-800 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold shadow-lg border border-blue-200 animate-pulse whitespace-nowrap text-xs md:text-base">
+                    👆 点击放置 / 点击删除
+                </span>
+            </div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="grid grid-cols-3 gap-2 md:gap-4 panel bg-blue-50 border-blue-100 py-2 md:py-4">
+            <div class="text-center border-r border-blue-200 px-1">
+                <div class="text-[10px] md:text-xs text-slate-500 uppercase tracking-wider">碰撞次数</div>
+                <div id="collisionCount" class="text-lg md:text-2xl font-bold text-blue-600">0</div>
+            </div>
+            <div class="text-center border-r border-blue-200 px-1">
+                <div class="text-[10px] md:text-xs text-slate-500 uppercase tracking-wider">杆上剩余</div>
+                <div id="antsLeft" class="text-lg md:text-2xl font-bold text-slate-700">7</div>
+            </div>
+            <div class="text-center px-1">
+                <div class="text-[10px] md:text-xs text-slate-500 uppercase tracking-wider">模拟时间</div>
+                <div id="simTime" class="text-lg md:text-2xl font-mono text-slate-700">0.0s</div>
+            </div>
+        </div>
+
+        <!-- Main Controls -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+            
+            <!-- Playback Controls -->
+            <div class="panel space-y-2 md:space-y-3">
+                <div class="flex items-center justify-between border-b pb-2 mb-1">
+                    <h3 class="font-bold text-slate-700 text-sm md:text-base">🎮 播放控制</h3>
+                    
+                    <div class="flex gap-2 md:gap-4">
+                        <!-- ID Toggle -->
+                        <div class="flex items-center gap-1 md:gap-2">
+                            <input type="checkbox" id="toggleId" class="hidden">
+                            <label for="toggleId" class="toggle-label scale-75 md:scale-100 origin-right"></label>
+                            <span class="text-xs font-bold text-slate-600">序号</span>
+                        </div>
+                        <!-- Flag Toggle -->
+                        <div class="flex items-center gap-1 md:gap-2">
+                            <input type="checkbox" id="toggleFlag" class="hidden">
+                            <label for="toggleFlag" class="toggle-label scale-75 md:scale-100 origin-right"></label>
+                            <span class="text-xs font-bold text-slate-600">旗帜</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-xs font-mono text-slate-400 truncate" id="scenarioName">经典场景</div>
+                
+                <div class="flex space-x-2">
+                    <button id="btnReset" class="flex-1 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-800 font-bold py-2 px-1 rounded transition text-xs md:text-sm">
+                        🎲 新生成
+                    </button>
+                    <button id="btnReplay" class="flex-1 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 text-amber-800 font-bold py-2 px-1 rounded transition text-xs md:text-sm">
+                        ↺ 重播
+                    </button>
+                    <!-- Made button larger: increased padding (py-3), font size (text-base md:text-lg) and flex-grow -->
+                    <button id="btnToggle" class="flex-[2] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-3 px-4 rounded-lg transition shadow-lg shadow-blue-200 text-base md:text-xl">
+                        开始模拟
+                    </button>
+                </div>
+                <div class="pt-1 md:pt-2">
+                    <div class="flex justify-between text-xs text-slate-500 mb-1">
+                        <span>速度: <span id="speedValue">5x</span></span>
+                        <span>50x</span>
+                    </div>
+                    <input type="range" id="speedRange" min="1" max="50" value="5" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </div>
+            </div>
+
+            <!-- Mode Selection & Generators -->
+            <div class="panel space-y-2 md:space-y-3 flex flex-col">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-slate-700 text-sm md:text-base">🛠️ 实验模式</h3>
+                </div>
+                
+                <div class="flex space-x-2 text-xs md:text-sm">
+                    <button id="modeCount" class="flex-1 py-2 border-2 border-blue-500 bg-blue-50 text-blue-700 font-bold rounded transition relative overflow-hidden">
+                        相遇几次
+                        <div class="absolute top-0 right-0 w-2 h-2 md:w-3 md:h-3 bg-blue-500 rounded-bl"></div>
+                    </button>
+                    <button id="modeLand" class="flex-1 py-2 border-2 border-slate-200 text-slate-500 hover:border-slate-300 font-bold rounded transition">
+                        能否着陆
+                    </button>
+                    <button id="modeCustom" class="flex-1 py-2 border-2 border-slate-200 text-slate-500 hover:border-slate-300 font-bold rounded transition">
+                        自定义
+                    </button>
+                </div>
+
+                <!-- Mode 1: Encounter Count Controls -->
+                <div id="countControls" class="pt-2 md:pt-3 border-t border-slate-100 mt-1 space-y-2">
+                    <div class="flex items-center gap-2 text-xs md:text-sm text-slate-700 justify-center">
+                        <span>总数:</span>
+                        <input type="number" id="inCountTotal" value="7" min="2" max="20" class="num-input">
+                        <span>左侧向右:</span>
+                        <input type="number" id="inCountRight" value="4" min="0" max="20" class="num-input">
+                    </div>
+                    <button id="btnGenCount" class="w-full bg-blue-100 hover:bg-blue-200 active:bg-blue-300 text-blue-800 font-bold py-2 rounded text-xs md:text-sm transition touch-manipulation">
+                        🎲 随机生成
+                    </button>
+                </div>
+
+                <!-- Mode 2: Can Land Controls -->
+                <div id="landControls" class="hidden pt-2 md:pt-3 border-t border-slate-100 mt-1 space-y-2">
+                    <div class="flex items-center gap-2 text-xs md:text-sm text-slate-700 justify-center">
+                        <span>总数:</span>
+                        <input type="number" id="inLandTotal" value="5" min="2" max="20" class="num-input">
+                    </div>
+                    <button id="btnGenLand" class="w-full bg-orange-100 hover:bg-orange-200 active:bg-orange-300 text-orange-800 font-bold py-2 rounded text-xs md:text-sm transition touch-manipulation">
+                        🎲 随机生成
+                    </button>
+                    <div class="text-[10px] text-slate-500 text-center">
+                        <span class="text-blue-600 font-bold">建议开启旗帜</span>，观察动量传递。
+                    </div>
+                </div>
+
+                <!-- Custom Toolbar -->
+                <div id="customToolbar" class="hidden pt-2 md:pt-3 border-t border-slate-100 mt-1">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <span class="text-[10px] md:text-xs font-bold text-slate-500 uppercase">设置:</span>
+                        
+                        <div class="flex space-x-1 flex-1 justify-end">
+                            <!-- Direction Buttons -->
+                            <div class="flex bg-slate-100 p-1 rounded-lg">
+                                <button id="toolLeft" class="px-2 py-1.5 rounded text-[10px] md:text-xs font-bold text-slate-500 hover:bg-white hover:shadow-sm transition flex items-center gap-1 active:scale-95">
+                                    ⬅️ 向左
+                                </button>
+                                <button id="toolRight" class="px-2 py-1.5 rounded text-[10px] md:text-xs font-bold bg-white shadow-sm text-blue-600 ring-1 ring-black/5 transition flex items-center gap-1 active:scale-95">
+                                    ➡️ 向右
+                                </button>
+                            </div>
+
+                            <!-- Alice Set Button -->
+                            <button id="btnSetAlice" class="ml-1 px-2 py-1.5 rounded-lg text-[10px] md:text-xs font-bold bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-transparent transition flex items-center gap-1 active:scale-95">
+                                👑 设置 Alice
+                            </button>
+                        </div>
+                    </div>
+                    <div id="setAliceHint" class="hidden text-[10px] text-red-500 text-right font-bold mt-1 animate-pulse">
+                        现在点击任意蚂蚁将其设为 Alice
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-6 mb-2">
+            <p class="text-sm font-semibold text-slate-400">@孙维刚教育研究院</p>
+        </div>
+
+    </div>
+
+    <script>
+        // Configuration
+        const CANVAS_WIDTH = 1000;
+        const CANVAS_HEIGHT = 400;
+        const ROD_Y = 250;
+        const ROD_LENGTH_PX = 800; // 800px represents 100cm
+        const ROD_START_X = (CANVAS_WIDTH - ROD_LENGTH_PX) / 2;
+        const ROD_END_X = ROD_START_X + ROD_LENGTH_PX;
+        const CM_TO_PX = ROD_LENGTH_PX / 100; // 8px per cm
+        const ANT_HITBOX = 20; 
+        
+        // Game State
+        let ants = [];
+        let initialAntsState = []; // For Replay
+        let collisionCount = 0;
+        let timeElapsed = 0;
+        let isRunning = false;
+        let speedMultiplier = 5;
+        let lastTime = 0;
+        let currentMode = 'count'; 
+        let showFlags = false;
+        let showIds = false;
+
+        // Custom Placement State
+        let placeDirection = 1; // 1 = Right, -1 = Left
+        let isSettingAlice = false; // Mode to click and set Alice
+        
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI References
+        const elCollision = document.getElementById('collisionCount');
+        const elAntsLeft = document.getElementById('antsLeft');
+        const elTime = document.getElementById('simTime');
+        const btnToggle = document.getElementById('btnToggle');
+        const btnReset = document.getElementById('btnReset');
+        const btnReplay = document.getElementById('btnReplay');
+        const rangeSpeed = document.getElementById('speedRange');
+        const elSpeedVal = document.getElementById('speedValue');
+        const elScenarioName = document.getElementById('scenarioName');
+        const elResetHint = document.getElementById('resetHint');
+        const elCustomHint = document.getElementById('customHint');
+        
+        const toggleFlag = document.getElementById('toggleFlag');
+        const toggleId = document.getElementById('toggleId');
+        
+        // Mode Buttons
+        const modeCountBtn = document.getElementById('modeCount');
+        const modeLandBtn = document.getElementById('modeLand');
+        const modeCustomBtn = document.getElementById('modeCustom');
+        
+        // Panels & Inputs
+        const countControls = document.getElementById('countControls');
+        const landControls = document.getElementById('landControls');
+        const customToolbar = document.getElementById('customToolbar');
+        const inCountTotal = document.getElementById('inCountTotal');
+        const inCountRight = document.getElementById('inCountRight');
+        const btnGenCount = document.getElementById('btnGenCount');
+        const inLandTotal = document.getElementById('inLandTotal');
+        const btnGenLand = document.getElementById('btnGenLand');
+        const btnToolLeft = document.getElementById('toolLeft');
+        const btnToolRight = document.getElementById('toolRight');
+        const btnSetAlice = document.getElementById('btnSetAlice');
+        const elSetAliceHint = document.getElementById('setAliceHint');
+
+        class Ant {
+            constructor(id, cmPosition, direction, isAlice) {
+                this.id = id;
+                this.x = ROD_START_X + cmPosition * CM_TO_PX;
+                this.y = ROD_Y - 24; 
+                this.direction = direction; // 1 (Right) or -1 (Left)
+                this.isAlice = isAlice;
+                this.isOnRod = true;
+                this.vy = 0; 
+                this.vx = 0; 
+                this.flagType = direction; 
+            }
+
+            update(dt) {
+                if (this.isOnRod) {
+                    let moveDist = this.direction * CM_TO_PX * dt; 
+                    this.x += moveDist;
+
+                    if (this.x < ROD_START_X || this.x > ROD_END_X) {
+                        this.isOnRod = false;
+                        this.vx = this.direction * 50; 
+                    }
+                } else {
+                    this.x += this.vx * dt;
+                    this.vy += 500 * dt; 
+                    this.y += this.vy * dt;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Draw ID (Start from 1)
+                if (showIds && this.isOnRod) { 
+                   ctx.fillStyle = '#475569';
+                   // Increased font size from 12px to 24px
+                   ctx.font = 'bold 24px monospace';
+                   ctx.textAlign = 'center';
+                   // Draw above ant
+                   ctx.fillText(this.id + 1, 0, -60);
+                }
+
+                if (this.direction === 1) ctx.scale(-1, 1);
+                
+                if (showFlags) this.drawFlag(ctx);
+                this.drawBody(ctx);
+
+                if (this.direction === 1) ctx.scale(-1, 1);
+
+                if (this.isAlice) {
+                    ctx.fillStyle = '#dc2626';
+                    ctx.font = 'bold 14px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText("Alice", 0, -48);
+                    ctx.beginPath();
+                    ctx.moveTo(0, -42);
+                    ctx.lineTo(-4, -36);
+                    ctx.lineTo(4, -36);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            drawFlag(ctx) {
+                const isBlue = this.flagType === 1;
+                const flagColor = isBlue ? '#3b82f6' : '#f97316';
+                const poleX = 3; 
+                const poleHeight = 45; 
+                
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(poleX, 0);
+                ctx.lineTo(poleX, -poleHeight);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#475569';
+                ctx.stroke();
+
+                ctx.fillStyle = flagColor;
+                ctx.beginPath();
+                ctx.moveTo(poleX, -poleHeight);
+                ctx.lineTo(poleX + 22, -poleHeight + 10);
+                ctx.lineTo(poleX, -poleHeight + 20);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            drawBody(ctx) {
+                let mainColor = this.isAlice ? '#ef4444' : '#334155';
+                let eyeColor = 'white';
+                
+                ctx.beginPath(); ctx.strokeStyle = mainColor; ctx.lineWidth = 2; ctx.lineCap = 'round';
+                ctx.moveTo(-9, 4); ctx.lineTo(-12, 12);
+                ctx.moveTo(-3, 6); ctx.lineTo(-4, 12);
+                ctx.moveTo(3, 6); ctx.lineTo(4, 12);
+                ctx.moveTo(9, 4); ctx.lineTo(12, 12);
+                ctx.stroke();
+
+                ctx.fillStyle = mainColor;
+                ctx.beginPath(); ctx.ellipse(9, -2, 7, 6, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(0, 0, 5, 5, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(-9, -4, 6, 6, 0, 0, Math.PI * 2); ctx.fill();
+
+                ctx.fillStyle = eyeColor;
+                ctx.beginPath(); ctx.arc(-11, -5, 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'black';
+                ctx.beginPath(); ctx.arc(-12, -5, 1, 0, Math.PI * 2); ctx.fill();
+
+                ctx.beginPath(); ctx.strokeStyle = mainColor; ctx.lineWidth = 1.5;
+                ctx.moveTo(-11, -8); ctx.quadraticCurveTo(-16, -15, -19, -12); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-7, -8); ctx.quadraticCurveTo(-9, -16, -3, -16); ctx.stroke();
+                
+                ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+                ctx.arc(-11, -2, 3, 0.1, 1.0); ctx.stroke();
+            }
+        }
+
+        // --- Logic & State Management ---
+
+        function saveInitialState() {
+            initialAntsState = ants.map(a => ({
+                id: a.id,
+                cm: (a.x - ROD_START_X) / CM_TO_PX,
+                dir: a.direction, 
+                isAlice: a.isAlice
+            }));
+        }
+
+        function restoreInitialState() {
+            ants = initialAntsState.map(cfg => {
+                let a = new Ant(cfg.id, cfg.cm, cfg.dir, cfg.isAlice);
+                return a;
+            });
+            collisionCount = 0;
+            timeElapsed = 0;
+            isRunning = false;
+            lastTime = 0;
+            
+            btnToggle.textContent = "开始模拟";
+            btnToggle.classList.remove('bg-slate-400');
+            btnToggle.classList.add('bg-blue-600');
+            btnToggle.disabled = false;
+            elResetHint.classList.add('hidden');
+            
+            if (currentMode === 'custom') canvas.classList.add('interactive');
+            
+            updateStats();
+            draw();
+        }
+
+        function setupGame(newAnts, modeName, autoSave = true) {
+            ants = newAnts;
+            collisionCount = 0;
+            timeElapsed = 0;
+            isRunning = false;
+            lastTime = 0;
+            
+            if(autoSave) saveInitialState();
+
+            btnToggle.textContent = "开始模拟";
+            btnToggle.classList.remove('opacity-50', 'bg-slate-400');
+            btnToggle.classList.add('bg-blue-600');
+            btnToggle.disabled = false;
+            elResetHint.classList.add('hidden');
+            elScenarioName.textContent = modeName;
+            
+            // Reset setting mode
+            isSettingAlice = false;
+            updateSetAliceUI();
+
+            updateStats();
+            draw();
+            updateCustomHint();
+        }
+
+        // --- Generators ---
+
+        function generateRandomPositions(count) {
+            const availableSpace = 90; 
+            const maxGap = 8;
+            const idealGap = Math.min(maxGap, availableSpace / count); 
+            
+            let positions = [];
+            for(let i=0; i<count; i++) positions.push(Math.random());
+            positions.sort((a,b) => a-b);
+            
+            const minDist = Math.max(2, idealGap * 0.8);
+            const freeSpace = 90 - ((count - 1) * minDist);
+            
+            if (freeSpace < 0) {
+                 for(let i=0; i<count; i++) positions[i] = 5 + i * (90/(count-1));
+                 return positions;
+            }
+            
+            let randomOffsets = [];
+            for(let i=0; i<count; i++) randomOffsets.push(Math.random() * freeSpace);
+            randomOffsets.sort((a,b) => a-b);
+            
+            let result = [];
+            for(let i=0; i<count; i++) {
+                result.push(5 + randomOffsets[i] + i * minDist);
+            }
+            return result;
+        }
+
+        function generateCountScene() {
+            const total = parseInt(inCountTotal.value) || 7;
+            const rightCount = parseInt(inCountRight.value) || 0;
+            const safeRightCount = Math.max(0, Math.min(total, rightCount));
+            
+            const positions = generateRandomPositions(total);
+            const newAnts = [];
+            const aliceIdx = Math.floor(total / 2);
+
+            for(let i=0; i<total; i++) {
+                const dir = (i < safeRightCount) ? 1 : -1;
+                newAnts.push(new Ant(i, positions[i], dir, i === aliceIdx));
+            }
+            
+            setupGame(newAnts, `相遇几次 (共${total}只, 左侧${safeRightCount}向右)`);
+        }
+
+        function generateLandSceneDefault() {
+            let positions = [0, 25, 50, 75, 100];
+            let tempAnts = [];
+            
+            tempAnts.push(new Ant(0, positions[0], 1, false));
+            tempAnts.push(new Ant(1, positions[1], 1, false));
+            tempAnts.push(new Ant(2, positions[2], 1, true));
+            tempAnts.push(new Ant(3, positions[3], -1, false));
+            tempAnts.push(new Ant(4, positions[4], -1, false));
+
+            setupGame(tempAnts, "能否着陆 (5只均匀分布, 3右2左)");
+        }
+
+        function generateLandSceneRandom() {
+            const total = parseInt(inLandTotal.value) || 5;
+            const positions = generateRandomPositions(total);
+            const newAnts = [];
+            const aliceIdx = Math.floor(Math.random() * total);
+
+            for(let i=0; i<total; i++) {
+                const dir = Math.random() > 0.5 ? 1 : -1; 
+                newAnts.push(new Ant(i, positions[i], dir, i === aliceIdx));
+            }
+
+            setupGame(newAnts, `能否着陆 (共${total}只, 完全随机)`);
+        }
+
+        // --- Core Loop ---
+
+        function checkCollisions() {
+            let activeAnts = ants.filter(a => a.isOnRod);
+            activeAnts.sort((a,b) => a.x - b.x);
+
+            for (let i = 0; i < activeAnts.length - 1; i++) {
+                let a1 = activeAnts[i];
+                let a2 = activeAnts[i+1];
+                let dist = a2.x - a1.x;
+                
+                if (dist < ANT_HITBOX && a1.direction === 1 && a2.direction === -1) {
+                    a1.direction = -1;
+                    a2.direction = 1;
+
+                    let tempFlag = a1.flagType;
+                    a1.flagType = a2.flagType;
+                    a2.flagType = tempFlag;
+                    
+                    let overlap = ANT_HITBOX - dist;
+                    a1.x -= overlap/2 + 0.1;
+                    a2.x += overlap/2 + 0.1;
+                    collisionCount++;
+                }
+            }
+        }
+
+        function update(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            if (isRunning) {
+                const simDt = deltaTime * speedMultiplier;
+                ants.forEach(ant => ant.update(simDt));
+                checkCollisions();
+
+                if (ants.some(a => a.isOnRod)) {
+                    timeElapsed += simDt;
+                } else {
+                    isRunning = false; 
+                    btnToggle.textContent = "演示结束";
+                    btnToggle.disabled = true;
+                    btnToggle.classList.remove('bg-blue-600');
+                    btnToggle.classList.add('bg-slate-400');
+                    elResetHint.classList.remove('hidden');
+                    // Enable replay
+                    btnReplay.classList.add('ring-2', 'ring-amber-500', 'animate-pulse');
+                }
+                updateStats();
+            }
+            
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            
+            // Rod
+            ctx.beginPath(); ctx.moveTo(ROD_START_X, ROD_Y); ctx.lineTo(ROD_END_X, ROD_Y);
+            ctx.lineWidth = 4; ctx.strokeStyle = '#94a3b8'; ctx.lineCap = 'round'; ctx.stroke();
+
+            // Ruler
+            ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'center'; ctx.font = '10px sans-serif';
+            for(let i=0; i<=100; i+=10) {
+                let x = ROD_START_X + i * CM_TO_PX;
+                ctx.fillRect(x - 1, ROD_Y, 2, 8);
+                ctx.fillText(i + "cm", x, ROD_Y + 20);
+            }
+
+            // Custom Hover
+            if (currentMode === 'custom' && !isRunning) {
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+                ctx.fillRect(ROD_START_X, ROD_Y - 50, ROD_LENGTH_PX, 100);
+                ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)';
+                ctx.strokeRect(ROD_START_X, ROD_Y - 50, ROD_LENGTH_PX, 100);
+            }
+            
+            ants.forEach(ant => ant.draw(ctx));
+        }
+
+        function updateStats() {
+            elCollision.textContent = collisionCount;
+            elAntsLeft.textContent = ants.filter(a => a.isOnRod).length;
+            elTime.textContent = timeElapsed.toFixed(1) + "s";
+        }
+
+        function updateCustomHint() {
+            if (currentMode === 'custom' && ants.length === 0) {
+                elCustomHint.classList.remove('hidden');
+            } else {
+                elCustomHint.classList.add('hidden');
+            }
+        }
+
+        // --- Interaction ---
+
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Buttons
+            [modeCountBtn, modeLandBtn, modeCustomBtn].forEach(btn => {
+                btn.className = 'flex-1 py-2 border-2 border-slate-200 text-slate-500 hover:border-slate-300 font-bold rounded transition';
+                if(btn.firstElementChild) btn.removeChild(btn.firstElementChild);
+            });
+            const active = mode === 'count' ? modeCountBtn : (mode === 'land' ? modeLandBtn : modeCustomBtn);
+            active.className = 'flex-1 py-2 border-2 border-blue-500 bg-blue-50 text-blue-700 font-bold rounded transition relative overflow-hidden';
+            const tri = document.createElement('div');
+            tri.className = 'absolute top-0 right-0 w-2 h-2 md:w-3 md:h-3 bg-blue-500 rounded-bl';
+            active.appendChild(tri);
+
+            // Panels
+            countControls.classList.toggle('hidden', mode !== 'count');
+            landControls.classList.toggle('hidden', mode !== 'land');
+            customToolbar.classList.toggle('hidden', mode !== 'custom');
+            canvas.classList.toggle('interactive', mode === 'custom');
+
+            // Defaults
+            if(mode === 'custom') {
+                setupGame([], "自定义场景");
+            } else if (mode === 'count') {
+                toggleFlag.checked = false; showFlags = false;
+                generateCountScene();
+            } else {
+                toggleFlag.checked = true; showFlags = true;
+                generateLandSceneDefault();
+            }
+        }
+
+        // Buttons
+        modeCountBtn.onclick = () => setMode('count');
+        modeLandBtn.onclick = () => setMode('land');
+        modeCustomBtn.onclick = () => setMode('custom');
+        btnGenCount.onclick = generateCountScene;
+        btnGenLand.onclick = generateLandSceneRandom;
+
+        // Toggles
+        toggleFlag.onchange = (e) => { showFlags = e.target.checked; draw(); };
+        toggleId.onchange = (e) => { showIds = e.target.checked; draw(); };
+
+        // Tools
+        btnToolLeft.onclick = () => {
+            placeDirection = -1;
+            btnToolLeft.className = "px-2 py-1 rounded text-[10px] md:text-xs font-bold bg-white shadow-sm text-blue-600 ring-1 ring-black/5 transition flex items-center gap-1 active:scale-95";
+            btnToolRight.className = "px-2 py-1 rounded text-[10px] md:text-xs font-bold text-slate-500 hover:bg-white hover:shadow-sm transition flex items-center gap-1 active:scale-95";
+        };
+        btnToolRight.onclick = () => {
+            placeDirection = 1;
+            btnToolRight.className = "px-2 py-1 rounded text-[10px] md:text-xs font-bold bg-white shadow-sm text-blue-600 ring-1 ring-black/5 transition flex items-center gap-1 active:scale-95";
+            btnToolLeft.className = "px-2 py-1 rounded text-[10px] md:text-xs font-bold text-slate-500 hover:bg-white hover:shadow-sm transition flex items-center gap-1 active:scale-95";
+        };
+
+        btnSetAlice.onclick = () => {
+            isSettingAlice = !isSettingAlice;
+            updateSetAliceUI();
+        };
+
+        function updateSetAliceUI() {
+            if (isSettingAlice) {
+                btnSetAlice.classList.remove('bg-slate-100', 'text-slate-500');
+                btnSetAlice.classList.add('bg-red-100', 'text-red-600', 'ring-2', 'ring-red-300');
+                elSetAliceHint.classList.remove('hidden');
+            } else {
+                btnSetAlice.classList.add('bg-slate-100', 'text-slate-500');
+                btnSetAlice.classList.remove('bg-red-100', 'text-red-600', 'ring-2', 'ring-red-300');
+                elSetAliceHint.classList.add('hidden');
+            }
+        }
+
+        // Handling Touch & Mouse Interactions uniformly
+        function handleInput(e) {
+            if (isRunning || currentMode !== 'custom') return;
+            
+            // Prevent scrolling on touch
+            if(e.type === 'touchstart') e.preventDefault();
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            
+            let clientX, clientY;
+            if (e.type === 'touchstart') {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            const x = (clientX - rect.left) * scaleX;
+            const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+            if (y < ROD_Y - 50 || y > ROD_Y + 50 || x < ROD_START_X || x > ROD_END_X) return;
+
+            const clickedIdx = ants.findIndex(a => Math.abs(a.x - x) < 30);
+            
+            if (clickedIdx !== -1) {
+                // Clicked an existing ant
+                if (isSettingAlice) {
+                    // Set as Alice (Unique)
+                    ants.forEach(a => a.isAlice = false);
+                    ants[clickedIdx].isAlice = true;
+                    isSettingAlice = false;
+                    updateSetAliceUI();
+                } else {
+                    // Delete
+                    ants.splice(clickedIdx, 1);
+                }
+            } else if (!isSettingAlice) {
+                // Add new ant (only if not in 'Set Alice' mode)
+                if (ants.some(a => Math.abs(a.x - x) < ANT_HITBOX)) return;
+                const cm = (x - ROD_START_X) / CM_TO_PX;
+                ants.push(new Ant(0, cm, placeDirection, false)); 
+            }
+            
+            // Re-sort and re-ID
+            ants.sort((a,b) => a.x - b.x);
+            ants.forEach((a, idx) => a.id = idx);
+            
+            saveInitialState(); 
+            elScenarioName.textContent = `自定义场景 (${ants.length}只)`;
+            updateStats();
+            draw();
+            updateCustomHint();
+        }
+
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', handleInput, {passive: false});
+
+        btnToggle.onclick = () => {
+            if(ants.length === 0) return;
+            isRunning = !isRunning;
+            btnToggle.textContent = isRunning ? "暂停" : "继续";
+            if(isRunning) {
+                lastTime = performance.now();
+                canvas.classList.remove('interactive');
+                elCustomHint.classList.add('hidden');
+                btnReplay.classList.remove('ring-2', 'ring-amber-500', 'animate-pulse');
+                
+                // Safety: Turn off Set Alice mode if running
+                isSettingAlice = false;
+                updateSetAliceUI();
+            } else if (currentMode === 'custom') {
+                canvas.classList.add('interactive');
+            }
+        };
+
+        btnReplay.onclick = () => {
+            restoreInitialState();
+            btnReplay.classList.remove('ring-2', 'ring-amber-500', 'animate-pulse');
+        };
+
+        btnReset.onclick = () => {
+            if(currentMode === 'count') generateCountScene();
+            else if(currentMode === 'land') generateLandSceneDefault();
+            else setupGame([], "自定义场景");
+        };
+
+        rangeSpeed.oninput = (e) => {
+            speedMultiplier = parseInt(e.target.value);
+            elSpeedVal.textContent = speedMultiplier + "x";
+        };
+
+        // Init
+        setMode('count');
+        requestAnimationFrame(update);
+
+    </script>
+</body>
+</html>

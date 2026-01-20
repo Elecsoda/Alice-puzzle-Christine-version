@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>蚂蚁Alice历险记 - @孙维刚教育研究院</title>
+    <title>果果滑雪历险记 - @孙维刚教育研究院</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -81,7 +81,7 @@
         
         <!-- Header -->
         <div class="text-center mt-2">
-            <h1 class="text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">蚂蚁Alice历险记</h1>
+            <h1 class="text-2xl md:text-4xl font-extrabold text-slate-800 tracking-tight">果果滑雪历险记</h1>
             <p id="headerHint" class="hidden"></p> 
         </div>
 
@@ -233,12 +233,12 @@
 
                             <!-- Alice Set Button -->
                             <button id="btnSetAlice" class="ml-1 px-2 py-1.5 rounded-lg text-[10px] md:text-xs font-bold bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-transparent transition flex items-center gap-1 active:scale-95">
-                                👑 设置 Alice
+                                👑 设置 Christine
                             </button>
                         </div>
                     </div>
                     <div id="setAliceHint" class="hidden text-[10px] text-red-500 text-right font-bold mt-1 animate-pulse">
-                        现在点击任意蚂蚁将其设为 Alice
+                        现在点击任意小人将其设为 Christine
                     </div>
                 </div>
 
@@ -360,18 +360,21 @@
                    ctx.fillText(this.id + 1, 0, -60);
                 }
 
-                if (this.direction === 1) ctx.scale(-1, 1);
+                // 修正：以前是方向为1时翻转，导致向右滑时面朝左（倒退）。
+                // 现在改为方向为-1（向左）时翻转，这样向左滑时面朝左，向右滑时面朝右。
+                if (this.direction === -1) ctx.scale(-1, 1);
                 
                 if (showFlags) this.drawFlag(ctx);
                 this.drawBody(ctx);
 
-                if (this.direction === 1) ctx.scale(-1, 1);
+                // 恢复翻转状态
+                if (this.direction === -1) ctx.scale(-1, 1);
 
                 if (this.isAlice) {
                     ctx.fillStyle = '#dc2626';
                     ctx.font = 'bold 14px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText("Alice", 0, -48);
+                    ctx.fillText("Christine", 0, -48);
                     ctx.beginPath();
                     ctx.moveTo(0, -42);
                     ctx.lineTo(-4, -36);
@@ -406,31 +409,65 @@
 
             drawBody(ctx) {
                 let mainColor = this.isAlice ? '#ef4444' : '#334155';
-                let eyeColor = 'white';
+                let skiColor = '#1e293b';
                 
-                ctx.beginPath(); ctx.strokeStyle = mainColor; ctx.lineWidth = 2; ctx.lineCap = 'round';
-                ctx.moveTo(-9, 4); ctx.lineTo(-12, 12);
-                ctx.moveTo(-3, 6); ctx.lineTo(-4, 12);
-                ctx.moveTo(3, 6); ctx.lineTo(4, 12);
-                ctx.moveTo(9, 4); ctx.lineTo(12, 12);
+                // Draw Skier
+                
+                // 1. Ski Board
+                ctx.beginPath();
+                ctx.moveTo(-16, 12);
+                ctx.lineTo(12, 12);
+                ctx.quadraticCurveTo(16, 10, 18, 6); // Ski tip up
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = skiColor;
+                ctx.lineCap = 'round';
                 ctx.stroke();
 
+                // 2. Legs (bent knees)
+                ctx.beginPath();
+                ctx.moveTo(0, 12); // Feet on ski
+                ctx.lineTo(4, 4);  // Knees
+                ctx.lineTo(-2, -4); // Hips
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = mainColor;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // 3. Torso
+                ctx.beginPath();
+                ctx.moveTo(-2, -4);
+                ctx.lineTo(2, -18); // Neck area
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = mainColor;
+                ctx.stroke();
+
+                // 4. Head
+                ctx.beginPath();
+                ctx.arc(4, -22, 6, 0, Math.PI * 2);
                 ctx.fillStyle = mainColor;
-                ctx.beginPath(); ctx.ellipse(9, -2, 7, 6, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(0, 0, 5, 5, 0, 0, Math.PI * 2); ctx.fill();
-                ctx.beginPath(); ctx.ellipse(-9, -4, 6, 6, 0, 0, Math.PI * 2); ctx.fill();
-
-                ctx.fillStyle = eyeColor;
-                ctx.beginPath(); ctx.arc(-11, -5, 2.5, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = 'black';
-                ctx.beginPath(); ctx.arc(-12, -5, 1, 0, Math.PI * 2); ctx.fill();
-
-                ctx.beginPath(); ctx.strokeStyle = mainColor; ctx.lineWidth = 1.5;
-                ctx.moveTo(-11, -8); ctx.quadraticCurveTo(-16, -15, -19, -12); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(-7, -8); ctx.quadraticCurveTo(-9, -16, -3, -16); ctx.stroke();
+                ctx.fill();
                 
-                ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
-                ctx.arc(-11, -2, 3, 0.1, 1.0); ctx.stroke();
+                // Eye (looking right/forward)
+                ctx.beginPath();
+                ctx.arc(7, -23, 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = 'white';
+                ctx.fill();
+
+                // 5. Arms & Pole
+                ctx.beginPath();
+                ctx.moveTo(0, -14); // Shoulder
+                ctx.lineTo(8, -6);  // Hand
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = mainColor;
+                ctx.stroke();
+
+                // Ski Pole
+                ctx.beginPath();
+                ctx.moveTo(8, -8);
+                ctx.lineTo(-6, 12); // Pole tip behind
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = '#64748b';
+                ctx.stroke();
             }
         }
 
@@ -536,7 +573,7 @@
                 newAnts.push(new Ant(i, positions[i], dir, i === aliceIdx));
             }
             
-            setupGame(newAnts, `相遇几次 (共${total}只, 左侧${safeRightCount}向右)`);
+            setupGame(newAnts, `相遇几次 (共${total}人, 左侧${safeRightCount}向右)`);
         }
 
         function generateLandSceneDefault() {
@@ -549,7 +586,7 @@
             tempAnts.push(new Ant(3, positions[3], -1, false));
             tempAnts.push(new Ant(4, positions[4], -1, false));
 
-            setupGame(tempAnts, "能否着陆 (5只均匀分布, 3右2左)");
+            setupGame(tempAnts, "能否着陆 (5人均匀分布, 3右2左)");
         }
 
         function generateLandSceneRandom() {
@@ -563,7 +600,7 @@
                 newAnts.push(new Ant(i, positions[i], dir, i === aliceIdx));
             }
 
-            setupGame(newAnts, `能否着陆 (共${total}只, 完全随机)`);
+            setupGame(newAnts, `能否着陆 (共${total}人, 完全随机)`);
         }
 
         // --- Core Loop ---
@@ -634,7 +671,7 @@
             for(let i=0; i<=100; i+=10) {
                 let x = ROD_START_X + i * CM_TO_PX;
                 ctx.fillRect(x - 1, ROD_Y, 2, 8);
-                ctx.fillText(i + "cm", x, ROD_Y + 20);
+                ctx.fillText(i + "m", x, ROD_Y + 20);
             }
 
             // Custom Hover
@@ -786,7 +823,7 @@
             ants.forEach((a, idx) => a.id = idx);
             
             saveInitialState(); 
-            elScenarioName.textContent = `自定义场景 (${ants.length}只)`;
+            elScenarioName.textContent = `自定义场景 (${ants.length}人)`;
             updateStats();
             draw();
             updateCustomHint();
